@@ -1,30 +1,28 @@
 // Open a realtime stream of Tweets, filtered according to rules
 // https://developer.twitter.com/en/docs/twitter-api/tweets/filtered-stream/quick-start
+const uri = "mongodb://localhost:27017/smmpanel";
+const mongoose = require('mongoose');
+mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+    })
+    .then(() => {
+    console.log('Connected')
+}).catch(err => console.log(err))
+const tweetModel = new mongoose.Schema({ tweetid: 'string', data: 'string', tag: 'string'},{timestamps: true});
+const tweeter = mongoose.model('tweets', tweetModel);
 
 const needle = require('needle');
 
-// The code below sets the bearer token from your environment variables
-// To set environment variables on macOS or Linux, run the export command below from the terminal:
-// export BEARER_TOKEN='YOUR-TOKEN'
 const token = 'AAAAAAAAAAAAAAAAAAAAALWpLwEAAAAAOQaOYqona1lzhe4pvwxwk3wmFfU%3Dify9vCYjUWGdgzWQ1xhStB6rPg3r3rHTXLmnc8kPQs0ccrRt6c';
 
 const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules';
 const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
 
-// this sets up two rules - the value is the search terms to match on, and the tag is an identifier that
-// will be applied to the Tweets return to show which rule they matched
-// with a standard project with Basic Access, you can add up to 25 concurrent rules to your stream, and
-// each rule can be up to 512 characters long
-
-// Edit rules as desired below
 const rules = [{
-        'value': 'dog has:images -is:retweet',
+        'value': 'tesla',
         'tag': 'dog pictures'
-    },
-    {
-        'value': 'cat has:images -grumpy',
-        'tag': 'cat pictures'
-    },
+    }
 ];
 
 async function getAllRules() {
@@ -36,6 +34,7 @@ async function getAllRules() {
     })
 
     if (response.statusCode !== 200) {
+        console.log("Error:", response.statusMessage, response.statusCode)
         throw new Error(response.body);
     }
 
@@ -92,7 +91,7 @@ async function setRules() {
 
 }
 
-function streamConnect() {
+function streamConnect(retryAttempt) {
 
     const stream = needle.get(streamURL, {
         headers: {
@@ -105,13 +104,39 @@ function streamConnect() {
     stream.on('data', data => {
         try {
             const json = JSON.parse(data);
-            console.log(json);
+            // console.log(json);
+            obj={}
+            obj["tweetid"]=json["data"]["id"]
+            obj["data"]=json["data"]["text"]
+            obj["tag"]=json["matching_rules"][0]["tag"]
+            console.log(obj);
+            tweeter.create(obj, function (err, obj2) {
+                if (err)
+                    console.log(err);
+                console.log(obj2)
+            });
+            // A successful connection resets retry count.
+            retryAttempt = 1;
         } catch (e) {
-            // Keep alive signal received. Do nothing.
+            if (data.detail === "This stream is currently at the maximum allowed connection limit.") {
+                console.log(data.detail)
+                process.exit(1)
+            } else {
+                // Keep alive signal received. Do nothing.
+            }
         }
-    }).on('error', error => {
-        if (error.code === 'ETIMEDOUT') {
-            stream.emit('timeout');
+    }).on('err', error => {
+        if (error.code !== 'ECONNRESET') {
+            console.log(error.code);
+            process.exit(1);
+        } else {
+            // This reconnection logic will attempt to reconnect when a disconnection is detected.
+            // To avoid rate limits, this logic implements exponential backoff, so the wait time
+            // will increase if the client cannot reconnect to the stream. 
+            setTimeout(() => {
+                console.warn("A connection error occurred. Reconnecting...")
+                streamConnect(++retryAttempt);
+            }, 2 ** retryAttempt)
         }
     });
 
@@ -135,24 +160,9 @@ function streamConnect() {
 
     } catch (e) {
         console.error(e);
-        process.exit(-1);
+        process.exit(1);
     }
 
     // Listen to the stream.
-    // This reconnection logic will attempt to reconnect when a disconnection is detected.
-    // To avoid rate limits, this logic implements exponential backoff, so the wait time
-    // will increase if the client cannot reconnect to the stream.
-
-    const filteredStream = streamConnect();
-    let timeout = 0;
-    filteredStream.on('timeout', () => {
-        // Reconnect on error
-        console.warn('A connection error occurred. Reconnecting…');
-        setTimeout(() => {
-            timeout++;
-            streamConnect();
-        }, 2 ** timeout);
-        streamConnect();
-    })
-
+    streamConnect(0);
 })();
