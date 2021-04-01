@@ -3,12 +3,13 @@ import pandas as pd
 import datetime as dt
 from praw.models import MoreComments
 import sys
+import json
 
 Search=sys.argv[1]
 
 reddit = praw.Reddit(client_id='qReU5pXkg46LcA', client_secret='HmxBqKB7ua_rbNVW3_8BUAg3kvlE4Q', user_agent='media monitoring')
 subreddit = reddit.subreddit(Search)
-top_subreddit = subreddit.top(limit=1)
+top_subreddit = subreddit.top(limit=10)
 topics_dict = { "title":[], \
                 "score":[], \
                 "id":[], "url":[],"comms_num": [], \
@@ -39,4 +40,4 @@ def get_date(created):
 _timestamp = topics_data["created"].apply(get_date)
 topics_data = topics_data.assign(timestamp = _timestamp)
 
-topics_data.to_json(Search+".json")
+topics_data.to_json(Search+".json",orient = "records")
