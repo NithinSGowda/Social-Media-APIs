@@ -55,9 +55,18 @@ def youtube_search(q, max_results=50,order="relevance", token=None, location=Non
             categoryId.append(response['items'][0]['snippet']['categoryId'])
             favoriteCount.append(response['items'][0]['statistics']['favoriteCount'])
             viewCount.append(response['items'][0]['statistics']['viewCount'])
-            likeCount.append(response["items"][0]["statistics"]["likeCount"])
-            dislikeCount.append(response["items"][0]["statistics"]["dislikeCount"])
-            commentCount.append(response["items"][0]["statistics"]["commentCount"])
+            if 'likeCount' in response['items'][0]['statistics'].keys():
+                likeCount.append(response["items"][0]["statistics"]["likeCount"])
+            else:
+                likeCount.append("")
+            if 'dislikeCount' in response['items'][0]['statistics'].keys():
+                dislikeCount.append(response["items"][0]["statistics"]["dislikeCount"])
+            else:
+                dislikeCount.append("")
+            if 'commentCount' in response['items'][0]["statistics"].keys():
+                commentCount.append(response["items"][0]["statistics"]["commentCount"])
+            else:
+                commentCount.append("")
 
         if 'tags' in response['items'][0]['snippet'].keys():
             tags.append(response['items'][0]['snippet']['tags'])
