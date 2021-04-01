@@ -2,7 +2,7 @@ from googleapiclient.discovery import build
 import sys
 import json
 
-DEVELOPER_KEY = "AIzaSyDNJsMDURjieOpkobhDSGs9rR0o2Anv-PI"
+DEVELOPER_KEY = "API_KEY"
 username = sys.argv[1]
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
